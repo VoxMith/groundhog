@@ -1,0 +1,12 @@
+{
+  "name": "voxmith",
+  "owner": { "name": "VoxMith" },
+  "description": "Tools from VoxMith for people who work with coding agents.",
+  "plugins": [
+    {
+      "name": "groundhog",
+      "source": "./",
+      "description": "Finds the instruction you repeat most to your coding agent, counts it, and writes the line for CLAUDE.md."
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "groundhog",
+  "version": "0.1.0",
+  "description": "Finds the instruction you repeat most to your coding agent, counts it, and writes the line for CLAUDE.md.",
+  "author": { "name": "VoxMith" },
+  "license": "MIT",
+  "keywords": ["claude-md", "history", "productivity"]
+}
