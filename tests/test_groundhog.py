@@ -360,7 +360,7 @@ def test_html_default_is_the_owners_own_view(env):
     assert "SecretProj" in h and "OtherRealName" in h
     assert "<script" not in h and "&lt;script&gt;alert(1)&lt;/script&gt;" in h      # real words, but escaped
     assert "http://" not in h and "https://" not in h and "Content-Security-Policy" in h
-    assert "Lines for CLAUDE.md" in h and "Made with Groundhog, voxmith.com/groundhog" in h and len(h) < 30000
+    assert "Lines for CLAUDE.md" in h and "Made with Groundhog, analyze.voxmith.com/groundhog" in h and len(h) < 30000
 
 
 def test_html_share_variant_is_generic(env):

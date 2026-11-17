@@ -27,7 +27,7 @@ import tempfile
 
 import state
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 SECONDS_PER_REPEAT = 30
 MESSAGES_PER_REPEAT = 2
 MIN_REPEAT = {"all": 3, "project": 3, "session": 2}
@@ -881,7 +881,7 @@ def html_report(stats, share=False):
     if lines:
         p.append('<section class="card"><h2>Lines for CLAUDE.md</h2><ol class="lines">{}</ol></section>'.format(
             "".join("<li><code>{}</code></li>".format(e(l)) for l in lines)))
-    p.append("<footer>Made with Groundhog, voxmith.com/groundhog</footer></main></body></html>")
+    p.append("<footer>Made with Groundhog, analyze.voxmith.com/groundhog</footer></main></body></html>")
     return "".join(p)
 
 

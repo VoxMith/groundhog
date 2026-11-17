@@ -135,7 +135,7 @@ It prints `Saved: {path}`, a `file://` line and `top_count: {N}` (or `NO_REPORT`
 
 The footer line:
 
-`Groundhog is from VoxMith, which shows teams where their customer-facing AI agents go wrong. voxmith.com/groundhog`
+`Groundhog is from VoxMith, which shows teams where their customer-facing AI agents go wrong. analyze.voxmith.com/groundhog`
 
 The privacy line, only when `ping.py notice` printed it (exactly):
 
@@ -229,7 +229,7 @@ Offer:
 Want to share it? Here's a card. It has only the number and a general phrase, none of your own words:
 
   I told my AI coding agent "stop adding comments" 23 times.
-  Groundhog counted it and wrote the fix. voxmith.com/groundhog
+  Groundhog counted it and wrote the fix. analyze.voxmith.com/groundhog
 
 Reply: 1 use as is (default), 2 count only, 3 use my exact words, 4 skip.
 ```
@@ -239,4 +239,4 @@ The general phrase is your own generic wording; the count is the number from the
 ## Errors
 
 - A history file that can't be read is skipped silently; the screen already ends with `(Skipped {k} files I couldn't read.)`.
-- Any other error: `Something went wrong reading your history: {short reason}. Nothing was changed. If it keeps happening, tell us at voxmith.com/groundhog.` No stack trace, no usernames in paths.
+- Any other error: `Something went wrong reading your history: {short reason}. Nothing was changed. If it keeps happening, tell us at analyze.voxmith.com/groundhog.` No stack trace, no usernames in paths.
