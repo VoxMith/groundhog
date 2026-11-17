@@ -89,10 +89,12 @@ def test_acceptance3_planted_secrets_never_appear(tmp_path, monkeypatch, env):
 
 # ---------------------------------------------------------------- 4c scope
 def test_scope_file_sets_and_counts(env):
+    # The running session (my1) is left out of "all" and "project": it grows while we read it.
     c = json.loads(gh("--count", "--project-dir", "/home/dev/my-app", "--session-id", SID["my1"]).stdout)
-    assert (c["all"]["sessions"], c["project"]["sessions"], c["session"]["sessions"]) == (4, 2, 1)
-    assert c["project"]["name"] == "my-app" and c["menu"] and "(4 sessions on this computer)" in c["menu"]
-    assert '(2 sessions in "my-app")' in c["menu"]
+    assert (c["all"]["sessions"], c["project"]["sessions"], c["session"]["sessions"]) == (3, 1, 1)
+    assert c["project"]["name"] == "my-app" and c["menu"] and "(3 sessions on this computer)" in c["menu"]
+    assert '(1 session' in c["menu"]
+    c = json.loads(gh("--count", "--project-dir", "/home/dev/my-app").stdout)
     a = scan(env, "--scope", "all")
     p = scan(env, "--scope", "project", "--project-dir", "/home/dev/my-app")
     s = scan(env, "--scope", "session", "--project-dir", "/home/dev/my-app", "--session-id", SID["my1"])
@@ -503,3 +505,51 @@ def test_summary_opens_with_welcome_back_on_later_runs(env):
     assert first.startswith("## You've said")
     second = gh("--summary", "saved", "--today", "2025-11-20").stdout
     assert second.startswith('Welcome back. Last time (Nov 14) your top instruction was "Don\'t add comments to code I didn\'t ask you about", 23 times.\n\n## You')
+
+
+# ---------------------------------------------------------------- same answer in every session
+def full_run(env, sid, cwd, clusters):
+    """scan + Claude's grouping (given) + stats, as the skill does it, from one session and folder."""
+    os.chdir(cwd)
+    r = gh("--scan", "--days", "3650", "--scope", "all", "--session-id", sid)
+    assert r.returncode == 0, r.stderr
+    out = json.loads(r.stdout)
+    st = gh("--stats", "-", "--today", "2025-11-14", stdin=clusters(out)).stdout
+    return out, json.loads(st)
+
+
+def test_same_answer_from_every_session_even_if_claude_groups_differently(env, tmp_path):
+    def first(out):   # run 1: Claude groups the top line under one label
+        return "{} | No extra comments | {} | Do not add code comments unless I ask.".format(out["candidates"][0]["id"], out["candidates"][0]["text"])
+
+    def other(out):   # later runs: Claude would word it differently and drop the line
+        return "none"
+
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    o1, s1 = full_run(env, "11111111-aaaa-4bbb-8ccc-000000000000", tmp_path / "a", first)
+    o2, s2 = full_run(env, "22222222-aaaa-4bbb-8ccc-000000000000", tmp_path / "b", other)
+    o3, s3 = full_run(env, "33333333-aaaa-4bbb-8ccc-000000000000", tmp_path / "a", other)
+    assert s1["clusters"][0]["label"] == "No extra comments" and s1["clusters"][0]["count"] == 4
+    assert s1 == s2 == s3
+    assert o2["known_groups"] == ["No extra comments"] and all(c["text"] != o1["candidates"][0]["text"] for c in o2["candidates"])
+    # lines Claude saw and left out are not asked about again
+    assert o3["candidates"] == []
+    assert "forgot" in gh("--forget").stdout
+    assert json.loads(gh("--scan", "--days", "3650", "--scope", "all").stdout)["candidates"] == o1["candidates"]
+
+
+def test_scan_output_is_identical_from_any_folder_and_session(env, tmp_path):
+    outs = []
+    for i, d in enumerate(("x", "y")):
+        (tmp_path / d).mkdir()
+        os.chdir(tmp_path / d)
+        outs.append(gh("--scan", "--days", "3650", "--scope", "all", "--session-id", "{}0000000-aaaa-4bbb-8ccc-000000000000".format(i + 5)).stdout)
+    assert outs[0] == outs[1]
+
+
+def test_running_session_is_left_out_unless_it_is_the_only_one(env):
+    a = json.loads(gh("--scan", "--days", "3650", "--scope", "all", "--session-id", SID["bill"]).stdout)
+    assert a["sessions_scanned"] == 3
+    one = G.list_files("session", 3650, "/home/dev/billing-api", SID["bill"])[0]
+    assert len(one) == 1  # "this session only" still reads it

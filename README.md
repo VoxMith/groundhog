@@ -33,7 +33,7 @@ Until the repo is public, neither command works for people outside the VoxMith G
 
 ## Use
 
-Type `/groundhog` (or `/groundhog:groundhog`). Optional words: `all`, `project` or `session` (skips the question), a number of days (default 90), `off`, `on`, `status`.
+Type `/groundhog` (or `/groundhog:groundhog`). Optional words: `all`, `project` or `session` (skips the question), a number of days (default 90), `off`, `on`, `status`, `fresh`. Groundhog remembers how it grouped your instructions, so every session on the same computer gives the same answer (the session you are in is not counted); `fresh` forgets that and groups again.
 
 With no scope word it asks what to check:
 

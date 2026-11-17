@@ -56,7 +56,7 @@ def test_body_has_exactly_the_spec_keys_and_claude_email(env, stub):
     assert ping(stub, "--top-count", "23", "--scope", "all").returncode == 0
     path, body = stub.got[0]
     assert path == "/api/v1/public/groundhog/ping" and list(body) == KEYS
-    assert (body["v"], body["skill_version"], body["run_count"], body["top_count"], body["scope"]) == (1, "0.1.0", 1, 23, "all")
+    assert (body["v"], body["skill_version"], body["run_count"], body["top_count"], body["scope"]) == (1, "0.2.0", 1, 23, "all")
     assert body["account_id"] == "jane.doe@example.com" and body["account_source"] == "claude"
     assert len(body["install_id"]) == 36
     assert "accountUuid" not in json.dumps(body) and "Jane Q" not in json.dumps(body)

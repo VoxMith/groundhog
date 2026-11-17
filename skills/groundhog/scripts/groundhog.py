@@ -10,7 +10,7 @@ Reads Claude Code history on this computer only. This file has NO network code
   groundhog.py --render clusters.json       (the exact result screen, as markdown)
   groundhog.py --html [--share] clusters.json   (writes the report, prints its path)
   groundhog.py --summary clusters.json      (short block for the terminal)
-  groundhog.py --welcome | --mark-written
+  groundhog.py --welcome | --mark-written | --forget
 """
 import argparse
 import collections
@@ -27,7 +27,7 @@ import tempfile
 
 import state
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 SECONDS_PER_REPEAT = 30
 MESSAGES_PER_REPEAT = 2
 MIN_REPEAT = {"all": 3, "project": 3, "session": 2}
@@ -251,7 +251,17 @@ def list_files(scope, days, project_path, session_id):
     """-> (files, info). info.fallback is True when the newest session stood in for the current one."""
     root = projects_root()
     info = {"fallback": False}
-    cutoff = datetime.datetime.now().timestamp() - days * 86400
+    # Whole UTC days, so two runs on the same day see the same window.
+    midnight = datetime.datetime.now(datetime.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    cutoff = (midnight - datetime.timedelta(days=days)).timestamp()
+
+    def settled(files):
+        """Sorted, inside the window, and without the session that is running right now (it keeps
+        growing while we read it). Kept only if it is the sole session, so a first run still works."""
+        files = sorted(p for p in files if os.path.getmtime(p) >= cutoff)
+        rest = [p for p in files if os.path.basename(p) != (session_id or "") + ".jsonl"]
+        return rest or files
+
     if scope == "all":
         files = []
         try:
@@ -260,13 +270,13 @@ def list_files(scope, days, project_path, session_id):
                     files += _jsonl(e.path)
         except OSError:
             pass
-        return [p for p in files if os.path.getmtime(p) >= cutoff], info
+        return settled(files), info
     folder = project_folder(root, project_path)
     if folder is None:
         return [], info
     files = _jsonl(folder)
     if scope == "project":
-        return [p for p in files if os.path.getmtime(p) >= cutoff], info
+        return settled(files), info
     one = os.path.join(folder, session_id + ".jsonl") if SESSION_ID_RE.match(session_id or "") else None
     if one and os.path.isfile(one):
         return [one], info
@@ -342,7 +352,7 @@ def group(items):
             if len(n) >= 3:
                 occ[n].add(mi)
                 disp[n][s] += 1
-    uniq = sorted(occ, key=lambda n: -len(occ[n]))
+    uniq = sorted(occ, key=lambda n: (-len(occ[n]), n))
     bucketed = len(uniq) > 5000
     groups, buckets = [], collections.defaultdict(list)  # ponytail: bucketing trades recall for speed above 5000 unique lines
     for n in uniq:
@@ -362,9 +372,65 @@ def group(items):
         for n in g["norms"]:
             msgs |= occ[n]
             shown.update(disp[n])
-        text = sorted(shown, key=lambda s: (-shown[s], len(s)))[0]
-        out.append({"text": text, "msgs": msgs})
+        text = sorted(shown, key=lambda s: (-shown[s], len(s), s))[0]
+        out.append({"text": text, "msgs": msgs, "norms": g["norms"]})
     return out
+
+
+def load_groups():
+    """GROUNDHOG_HOME/groups.json: {"norms": {normalised line: label, or "" when it is not a rule},
+    "labels": {label: {"quote", "line"}}}. Written from Claude's grouping, read by every later scan."""
+    g = state.read_json("groups.json", {})
+    return {"norms": g.get("norms") or {}, "labels": g.get("labels") or {}}
+
+
+def decide(group_norms, saved):
+    """Label most of this group's known lines got (None = never seen, "" = not a rule). Ties: first by name."""
+    votes = collections.Counter(saved["norms"][n] for n in group_norms if n in saved["norms"])
+    if not votes:
+        return None
+    return sorted(votes.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+
+
+def merge_saved(data, scan):
+    """Claude's clusters for the new lines + the saved ones -> the full cluster list. Remembers the new
+    decisions so the next run (in any session) groups the same way."""
+    saved = load_groups()
+    by_key, out = {}, []
+
+    def cluster(label, quote="", line=""):
+        k = label.strip().lower()
+        if k not in by_key:
+            keep = saved["labels"].get(label, {})
+            by_key[k] = {"label": label, "quote": keep.get("quote") or quote, "line": keep.get("line") or line,
+                         "candidate_ids": []}
+            out.append(by_key[k])
+        return by_key[k]
+
+    for label in sorted(scan.get("known", {})):
+        cluster(label)["candidate_ids"] += scan["known"][label]
+    assigned = set()
+    for c in data.get("clusters", []):
+        label = (c.get("label") or "").strip()
+        if not label:
+            continue
+        t = cluster(label, c.get("quote") or "", c.get("line") or "")
+        t["line"] = t["line"] or c.get("line") or ""
+        for i in c.get("candidate_ids", []):
+            if str(i) in scan.get("norms", {}) and i not in t["candidate_ids"]:
+                t["candidate_ids"].append(i)
+                assigned.add(i)
+    for t in out:
+        saved["labels"][t["label"]] = {"quote": t["quote"], "line": t["line"]}
+        for i in t["candidate_ids"]:
+            for n in scan["norms"].get(str(i), []):
+                saved["norms"][n] = t["label"]
+    for i in scan.get("shown", []):  # shown to Claude and left out: not a rule, don't ask again
+        if i not in assigned:
+            for n in scan["norms"].get(str(i), []):
+                saved["norms"].setdefault(n, "")
+    state.write_private("groups.json", saved)
+    return {"clusters": out}
 
 
 def score(count, sessions, projects):
@@ -407,6 +473,7 @@ def do_scan(args):
                 state.write_private("cache.json", cache)
     if args.resume and files:
         state.write_private("cache.json", cache)
+    items.sort(key=lambda m: (m[0], m[1], m[3]))  # same order whatever order the files were read in
     sess, proj = {}, {}
     ranked = []
     for g in group(items):
@@ -414,20 +481,43 @@ def do_scan(args):
         s_ids = {m[1] for m in ms}
         p_ids = {m[2] for m in ms}
         ranked.append((score(len(ms), len(s_ids), len(p_ids)), len(s_ids), g, ms))
-    ranked.sort(key=lambda r: (-r[0], -r[1]))
+    ranked.sort(key=lambda r: (-r[0], -r[1], r[2]["text"]))
     res["candidate_messages"] = len({m for r in ranked for m in r[2]["msgs"]})
-    res["tail"] = max(0, len(ranked) - args.max)
-    cands = {}
-    for cid, (_, _, g, ms) in enumerate(ranked[:args.max]):
+    # Groupings Claude made on an earlier run are reused, so every session on this computer gets the
+    # same answer. Only lines never seen before go to Claude.
+    saved = load_groups()
+    known, new = {}, []
+    for r in ranked:
+        label = decide(r[2]["norms"], saved)
+        if label is None:
+            new.append(r)
+        elif label:
+            known.setdefault(label, []).append(r)
+    res["tail"] = max(0, len(new) - args.max)
+    cands, norms, known_ids = {}, {}, {}
+
+    def add(cid, g, ms):
+        cands[str(cid)] = {"occ": [[m[0], sess.setdefault(m[1], len(sess)), proj.setdefault(m[2], len(proj)), mi]
+                                   for mi, m in zip(sorted(g["msgs"]), ms)]}
+        norms[str(cid)] = g["norms"]
+
+    for cid, (_, _, g, ms) in enumerate(new[:args.max]):
         ts = [m[0] for m in ms]
         res["candidates"].append({"id": cid, "text": g["text"], "count": len(ms),
                                   "sessions": len({m[1] for m in ms}), "projects": len({m[2] for m in ms}),
                                   "first": _day(min(ts)).isoformat(), "last": _day(max(ts)).isoformat()})
-        cands[str(cid)] = {"occ": [[m[0], sess.setdefault(m[1], len(sess)), proj.setdefault(m[2], len(proj)), mi]
-                                   for mi, m in zip(sorted(g["msgs"]), ms)]}
+        add(cid, g, ms)
+    cid = len(res["candidates"])
+    for label in sorted(known):
+        for _, _, g, ms in known[label]:
+            add(cid, g, ms)
+            known_ids.setdefault(label, []).append(cid)
+            cid += 1
+    res["known_groups"] = sorted(known)
     scratch = {"scope": scope, "sessions_scanned": res["sessions_scanned"], "human_messages": res["human_messages"],
                "unreadable": res["skipped"]["unreadable_files"], "projects": sorted(proj, key=proj.get),
-               "texts": {str(c["id"]): c["text"] for c in res["candidates"]}, "cands": cands}
+               "texts": {str(c["id"]): c["text"] for c in res["candidates"]}, "cands": cands,
+               "norms": norms, "known": known_ids, "shown": [c["id"] for c in res["candidates"]]}
     state.write_private("scan.json", scratch)
     print(json.dumps(res, indent=1, ensure_ascii=False))
 
@@ -483,6 +573,9 @@ def load_json_arg(arg):
         return state.read_json("clusters.json", {"clusters": []})
     raw = sys.stdin.read() if arg == "-" else open(arg).read()
     data = parse_clusters(raw)
+    scan = state.read_json("scan.json", {})
+    if "norms" in scan:
+        data = merge_saved(data, scan)
     try:
         state.write_private("clusters.json", data)
     except OSError:
@@ -818,6 +911,7 @@ def main(argv):
     g.add_argument("--summary", metavar="CLUSTERS")
     g.add_argument("--welcome", action="store_true")
     g.add_argument("--mark-written", action="store_true")
+    g.add_argument("--forget", action="store_true")
     ap.add_argument("--scope", choices=("all", "project", "session"), default="all")
     ap.add_argument("--days", type=int, default=90)
     ap.add_argument("--max", type=int, default=150)
@@ -835,6 +929,12 @@ def main(argv):
             do_count(a)
         elif a.scan:
             do_scan(a)
+        elif a.forget:
+            try:
+                os.unlink(os.path.join(state.home(), "groups.json"))
+            except OSError:
+                pass
+            print("Done. I forgot how I grouped your instructions. The next run groups them again from scratch.")
         elif a.welcome:
             print(welcome_text(state.load()) or "")
         elif a.mark_written:

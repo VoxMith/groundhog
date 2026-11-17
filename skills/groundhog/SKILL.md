@@ -1,7 +1,7 @@
 ---
 name: groundhog
 description: Finds the instruction the user repeats most often to their coding agent, counts it, and offers to write the fix as a line in CLAUDE.md. Reads local Claude Code history. Run it with /groundhog.
-argument-hint: "[all|project|session] [days] [off|on|status]"
+argument-hint: "[all|project|session] [days] [off|on|status|fresh]"
 disable-model-invocation: true
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/groundhog.py *) Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/ping.py *) Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/open_report.py *)
 ---
@@ -26,7 +26,7 @@ What you must follow:
 
 Arguments the user typed: `$ARGUMENTS`
 
-Words you may find in them: `all`, `project` or `session` (skips the scope question), a number of days (default 90), `off`, `on`, `status`.
+Words you may find in them: `all`, `project` or `session` (skips the scope question), a number of days (default 90), `off`, `on`, `status`, `fresh`.
 
 Scripts live in `${CLAUDE_SKILL_DIR}/scripts/`. Run them with `python3`. If python3 is missing, print this and stop:
 
@@ -40,6 +40,8 @@ If the arguments contain `off`, `on` or `status`, run `python3 ${CLAUDE_SKILL_DI
 
 - off prints: `Done. Groundhog will not tell VoxMith anything from now on. The scan still works.`
 - on turns the ping back on. status prints exactly the fields that would be sent, and whether it is on. The ping also stays off when the environment has GROUNDHOG_NO_PING=1 or DO_NOT_TRACK=1.
+
+If the arguments contain `fresh`, run `python3 ${CLAUDE_SKILL_DIR}/scripts/groundhog.py --forget`, print its output exactly, then go on with Step 2 as normal (without the word `fresh`).
 
 ## Step 1. Welcome back
 
@@ -103,8 +105,10 @@ After the scan print: `Found {M} things you told me to do or not do. Grouping th
 
 You only see the redacted candidate list, never assistant replies or file contents.
 
+Groundhog remembers how you grouped lines on earlier runs, so every session on this computer gets the same answer. Those lines are already counted by the script and are not in the list; their labels are in `known_groups`. If a new candidate means the same as one of them, use that label exactly, word for word. If there are no candidates, write `none`. The saved groups still count.
+
 1. Cluster candidates that are the same instruction in different words (any language). Keep only reusable behaviour rules about HOW the agent should behave. Drop task requests, tool requests, one-offs, questions, and anything about one particular file ("fix the failing test in billing", "run the build", "add a login page").
-2. For each cluster write (the script takes them as one line each, see Step 5): `label` (short, generic wording, the instruction in a few words), `quote` (the user's own words, short, taken from the candidate text), `line` (the CLAUDE.md line: imperative, one sentence, general, under 20 words, no project names or secrets; only for the top 5 clusters), and `candidate_ids` (every candidate id you merged).
+2. For each cluster write (the script takes them as one line each, see Step 5): `label` (short, generic wording, the instruction in a few words), `quote` (the user's own words, short, taken from the candidate text), `line` (the CLAUDE.md line: imperative, one sentence, general, under 20 words, no project names or secrets; for every cluster), and `candidate_ids` (every candidate id you merged).
 3. Do not add up or compare counts yourself. The script ranks and counts. If the rule is about a command that must never run or a file that must never change, a hook is stricter than a CLAUDE.md line (see Step 7).
 
 ## Step 5. Deliver the result (the report opens in the browser)

@@ -19,7 +19,7 @@ import uuid
 
 import state
 
-SKILL_VERSION = "0.1.0"
+SKILL_VERSION = "0.2.0"
 DEFAULT_URL = "https://api.voxmith.com/api/v1/public/groundhog/ping"
 SCOPES = ("session", "project", "all")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
