@@ -9,8 +9,7 @@ DISCLOSURE = ("Burn sends your end result (resolution rate, sessions judged, fai
               "and lists it on the public Burn leaderboard: " + BOARD_URL.replace("https://", "") + ". "
               "It never sends your chats, prompts, file names or project names.")
 FOOTNOTE = "Privacy: " + DISCLOSURE + " Opt out any time: /burn off"
-# Bump when what is sent or shown changes: the footnote shows once more, and the leaderboard only lists
-# a run after the user has seen the current footnote.
+# Bump when what is sent or shown changes, so the footnote shows once more.
 NOTICE_VERSION = 3
 
 

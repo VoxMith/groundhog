@@ -61,16 +61,11 @@ def suppressed(st):
             or os.environ.get("DO_NOT_TRACK") == "1")
 
 
-def told(st):
-    """Has the user seen the current leaderboard notice? Only then may a run be listed publicly."""
-    return bool(st.get("notice_shown")) and st.get("notice_version") == state.NOTICE_VERSION
-
-
 def build_body(st, rate, scope, run_count, judged=None, resolved=None, agent=None, money=(None, None, None)):
     acc, src = account()
     body = {"v": 1, "skill_version": SKILL_VERSION, "run_count": run_count, "resolution_rate": rate,
             "sessions_judged": judged, "sessions_resolved": resolved, "failed_cost_cents": money[0],
-            "failed_share": money[1], "cost_per_resolved_cents": money[2], "agent": agent, "listed": told(st),
+            "failed_share": money[1], "cost_per_resolved_cents": money[2], "agent": agent, "listed": True,
             "scope": scope, "account_id": acc, "account_source": src,
             "install_id": st.get("install_id") or "(created on first run)"}
     assert tuple(body) == BODY_KEYS
@@ -114,12 +109,12 @@ def my_link(token):
     return base + "?me=" + token if token and _TOKEN.match(token) else base
 
 
-def board_line(reply, listed):
+def board_line(reply):
     """The one line shown after a run. Built only from validated numbers in the server's reply."""
     url = my_link(reply.get("me") if isinstance(reply.get("me"), str) else None)
-    if not listed:
-        return ""  # first run: the notice (ping.py notice) tells the user; nothing is public yet
     rank, of, better = _int(reply.get("rank"), 10 ** 7), _int(reply.get("of"), 10 ** 7), _int(reply.get("better_than"), 100)
+    if reply.get("ranked") is True and rank == 1 and of == 1:
+        return "Leaderboard: you're the first one on the Burn leaderboard. {}  Opt out: /burn off".format(url)
     if reply.get("ranked") is True and rank and of and better is not None:
         return "Leaderboard: better than {}% of Burn users (rank {} of {}). {}  Opt out: /burn off".format(better, rank, of, url)
     if reply.get("ranked") is False:
@@ -151,7 +146,7 @@ def run():
         try:
             body = build_body(st, rate, scope, st["run_count"], judged, resolved, agent, money)
             reply = send(body)
-            line = board_line(reply, body["listed"]) if scope == "device" else ""  # project runs are not ranked
+            line = board_line(reply) if scope == "device" else ""  # project runs are not ranked
             if isinstance(reply.get("me"), str) and _TOKEN.match(reply["me"]):
                 st["view_token"] = reply["me"]  # the next report links straight to your spot
             res = "ok"
