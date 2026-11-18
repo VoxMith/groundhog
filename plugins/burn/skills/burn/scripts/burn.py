@@ -23,7 +23,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 import state
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 RULES_VERSION = 2
 MIN_HUMAN = 2            # fewer human messages: "too short to judge"
 MIN_CORRECTIONS = 2      # corrections needed for "corrected"
