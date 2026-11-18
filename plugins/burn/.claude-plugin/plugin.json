@@ -1,0 +1,8 @@
+{
+  "name": "burn",
+  "version": "0.1.0",
+  "description": "What did your coding agent's failures cost you? Resolution rate and dollars burned on failed sessions, from your local Claude Code and Codex history.",
+  "author": { "name": "VoxMith" },
+  "license": "MIT",
+  "keywords": ["cost", "tokens", "history", "codex", "productivity"]
+}
