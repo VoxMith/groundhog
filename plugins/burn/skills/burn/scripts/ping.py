@@ -19,7 +19,7 @@ import uuid
 
 import state
 
-SKILL_VERSION = "0.1.0"
+SKILL_VERSION = "0.1.1"
 DEFAULT_URL = "https://api.voxmith.com/api/v1/public/burn/ping"
 SCOPES = ("device", "project")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
