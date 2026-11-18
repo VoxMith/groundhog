@@ -74,7 +74,7 @@ def test_status_and_notice(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     body = json.loads(out[out.index("{"):out.rindex("}") + 1])
     assert list(body) == KEYS and body["resolution_rate"] == 40
-    assert "It never sends your chats, prompts, file names or project names." in out and '"listed": false' in out
+    assert "It never sends your chats, prompts, file names or project names." in out and '"listed": true' in out
     ping.notice()
     first = capsys.readouterr().out
     ping.notice()
@@ -89,19 +89,18 @@ def test_cli_off(tmp_path):
 
 
 
-def test_listed_only_after_the_notice(tmp_path, monkeypatch, capsys):
+def test_listed_from_the_first_run(tmp_path, monkeypatch, capsys):
     sent = setup(tmp_path, monkeypatch, {"rate": 61, "scope": "device", "judged": 213, "resolved": 129, "agent": "claude"})
     REPLY["r"] = {"ranked": True, "rank": 12, "of": 340, "better_than": 72, "score": 54, "me": "Ab3_x-9QzTt7"}
-    ping.run()                     # first run: not told yet -> not listed, no board line
-    assert sent[-1]["listed"] is False and capsys.readouterr().out == ""
-    ping.notice()                  # the skill shows the notice after the first ping
-    assert "public Burn leaderboard" in capsys.readouterr().out
-    ping.run()                     # second run: listed, rank line printed
+    ping.run()                     # the very first run is listed and shows the rank line
     assert sent[-1]["listed"] is True
     out = capsys.readouterr().out
     assert out == ("Leaderboard: better than 72% of Burn users (rank 12 of 340). "
                    "analyze.voxmith.com/burn/leaderboard?me=Ab3_x-9QzTt7  Opt out: /burn off\n")
     assert state.load()["view_token"] == "Ab3_x-9QzTt7"
+    REPLY["r"] = {"ranked": True, "rank": 1, "of": 1, "better_than": 0, "score": 32}
+    ping.run()
+    assert capsys.readouterr().out.startswith("Leaderboard: you're the first one on the Burn leaderboard.")
     REPLY["r"] = {"ranked": False, "min_sessions": 20}
     ping.run()
     assert "you need 20 judged sessions" in capsys.readouterr().out
@@ -109,7 +108,6 @@ def test_listed_only_after_the_notice(tmp_path, monkeypatch, capsys):
     ping.run()
     assert capsys.readouterr().out == ""  # anything odd in the reply prints nothing
     REPLY.clear()
-
 
 def test_off_takes_you_off_the_board(tmp_path, monkeypatch, capsys):
     sent = setup(tmp_path, monkeypatch, {"rate": 61, "scope": "device"})
@@ -127,7 +125,6 @@ def test_off_takes_you_off_the_board(tmp_path, monkeypatch, capsys):
 
 def test_project_runs_print_no_board_line(tmp_path, monkeypatch, capsys):
     setup(tmp_path, monkeypatch, {"rate": 61, "scope": "project", "judged": 50, "resolved": 30})
-    state.save(dict(state.load(), notice_shown=True, notice_version=state.NOTICE_VERSION))
     REPLY["r"] = {"ranked": True, "rank": 1, "of": 2, "better_than": 100}
     ping.run()
     assert capsys.readouterr().out == ""
@@ -137,7 +134,6 @@ def test_project_runs_print_no_board_line(tmp_path, monkeypatch, capsys):
 
 def test_bad_find_me_code_is_ignored(tmp_path, monkeypatch, capsys):
     setup(tmp_path, monkeypatch, {"rate": 61, "scope": "device", "judged": 213, "resolved": 129})
-    state.save(dict(state.load(), notice_shown=True, notice_version=state.NOTICE_VERSION))
     REPLY["r"] = {"ranked": True, "rank": 1, "of": 2, "better_than": 100, "me": "<script>alert(1)</script>"}
     ping.run()
     out = capsys.readouterr().out

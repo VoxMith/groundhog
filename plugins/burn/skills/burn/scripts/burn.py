@@ -894,8 +894,7 @@ def html_report(r):
     if r["unpriced_tokens"]:
         notes.append("{} tokens used a model with no known price and are not in the dollar figures.".format(fmt_tokens(r["unpriced_tokens"])))
     P.append("<footer>" + "".join("<p>{}</p>".format(n) for n in notes) +
-             "<p>Your end result and account email are on the public Burn leaderboard (from the run after you "
-             "first see this notice). Opt out any time: /burn off.</p>"
+             "<p>Your end result and account email are on the public Burn leaderboard. Opt out any time: /burn off.</p>"
              "<p>Burn is from VoxMith. analyze.voxmith.com/burn</p></footer></main></body></html>")
     return "".join(P)
 
