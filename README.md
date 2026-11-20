@@ -60,7 +60,7 @@ Each time you run it, Groundhog sends VoxMith exactly these things:
 | `account_source` | `claude`, `git` or `none` |
 | `install_id` | a random ID made on first run |
 
-We use it to count how many people use Groundhog. To have your data deleted, email hello@voxmith.com.
+We use it to count how many people use Groundhog. To have your data deleted, email manvendra.singh@voxmith.com.
 
 The ping is built by `skills/groundhog/scripts/ping.py`, the only file with network code, from two checked values (`--top-count`, `--scope`) plus your local state. It never reads scan output, so no text can travel through it. It waits at most 3 seconds and ignores every failure. `groundhog.py`, which reads your history, has no network code and starts no other programs; a test checks that.
 

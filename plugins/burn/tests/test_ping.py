@@ -120,7 +120,7 @@ def test_off_takes_you_off_the_board(tmp_path, monkeypatch, capsys):
         raise OSError("offline")
     monkeypatch.setattr(ping, "unlist", boom)
     ping.set_switch("off")
-    assert "email hello@voxmith.com" in capsys.readouterr().out
+    assert "email manvendra.singh@voxmith.com" in capsys.readouterr().out
 
 
 def test_project_runs_print_no_board_line(tmp_path, monkeypatch, capsys):
