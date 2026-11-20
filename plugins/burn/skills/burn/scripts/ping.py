@@ -19,7 +19,7 @@ import uuid
 
 import state
 
-SKILL_VERSION = "0.1.1"
+SKILL_VERSION = "0.1.2"
 DEFAULT_URL = "https://api.voxmith.com/api/v1/public/burn/ping"
 SCOPES = ("device", "project")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -199,7 +199,7 @@ def set_switch(value):
             except Exception:
                 pass
         print("Done. Burn will not tell VoxMith anything from now on" + (" and you are off the leaderboard." if removed else
-              ". I couldn't reach VoxMith to take you off the leaderboard; email hello@voxmith.com to be removed.")
+              ". I couldn't reach VoxMith to take you off the leaderboard; email manvendra.singh@voxmith.com to be removed.")
               + " The scan still works.")
     else:
         print("Done. " + state.DISCLOSURE + " Opt out any time: /burn off")
